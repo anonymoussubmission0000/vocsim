@@ -1,0 +1,25 @@
+datasets:
+  vocsim_full:
+    id: anonymous-submission000/vocsim
+    subset: null
+    split: train
+
+  vocsim_subset_bs1:
+    id: anonymous-submission000/vocsim
+    subset: BS1
+    split: train
+
+  avian_perception:
+    id: anonymous-submission000/vocsim-applications-avian-perception
+    subset: null
+    split: train
+
+  mouse_identity:
+    id: anonymous-submission000/vocsim-applications-mouse-identity
+    subset: null
+    split: train
+
+  mouse_strain:
+    id: anonymous-submission000/vocsim-applications-mouse-strain
+    subset: null
+    split: train

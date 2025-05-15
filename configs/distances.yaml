@@ -1,0 +1,7 @@
+distances:
+  - name: cosine
+  - name: euclidean
+    params:
+      use_torchmetrics: true 
+      zero_diagonal: true
+  - name: spearman
