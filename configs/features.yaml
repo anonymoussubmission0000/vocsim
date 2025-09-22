@@ -1,0 +1,71 @@
+feature_extractors:
+
+  - name: MelExtractor
+    module: features.mel
+    params:
+      sr: 16000 
+      n_fft: 512
+      hop_length: 256
+      n_mels: 128
+      log_scale: true
+
+  - name: WavLMExtractor
+    module: features.wavlm
+    params:
+      model_id: microsoft/wavlm-large
+      output_hidden_states: false
+
+  - name: Wav2Vec2Extractor
+    module: features.wav2vec2
+    params:
+      model_id: facebook/wav2vec2-base-960h
+      output_hidden_states: false
+
+  - name: WhisperEncoderExtractor
+    module: features.whisper
+    params:
+      model_id: openai/whisper-large-v3 
+      output_hidden_states: false
+
+  - name: WhisperSegExtractor_Embedding
+    module: features.whisperseg.extractor
+    params:
+      model_path: "nccratliri/whisperseg-base-animal-vad-ct2" 
+      output_type: "embedding"
+
+  - name: WhisperSegExtractor_Spectrogram
+    module: features.whisperseg.extractor
+    params:
+      model_path: "nccratliri/whisperseg-base-animal-vad-ct2"
+      output_type: "spectrogram"
+
+  - name: CLAPExtractor
+    module: features.clap
+    params:
+      model_id: "laion/larger_clap_general"
+
+  - name: AudioMAEExtractor
+    module: features.audiomae
+    params:
+      model_id: "hance-ai/audiomae"
+      trust_remote_code: true
+
+  - name: EncodecExtractor
+    module: features.encodec
+    params:
+      model_id: "facebook/encodec_24khz"
+      bandwidth: 6.0 
+
+
+  - name: WavLMExtractor_mean_time
+    base_extractor: WavLMExtractor
+    averaging: mean_time
+
+  - name: WavLMExtractor_mean_time_pca_100
+    base_extractor: WavLMExtractor
+    averaging: mean_time
+    pca: 100
+
+  - name: WavLMExtractor_pca_100
+    base_extractor: WavLMExtractor
+    pca: 100

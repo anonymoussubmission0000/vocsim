@@ -1,0 +1,478 @@
+project_root: "."
+results_dir: "d:/data2/vocsim/results/vocsim"
+# results_dir: "d:/data2/vocsim/results/vocsim_gsr_only"
+features_dir: "d:/data2/vocsim/features/vocsim"
+models_dir: &models_output_dir "d:/data2/vocsim/paper_models_scoped"
+output_tables_dir: "d:/data2/vocsim/paper_outputs/vocsim_tables_generated"
+run_id: "vocsim_${now:%Y%m%d_%H%M%S}"
+force_cpu: false
+target_sample_rate: 16000
+feature_chunk_size_gb: 3  
+logging:
+  level: INFO
+
+# --- Dataset ---
+dataset:
+  id: anonymous-submission000/vocsimfull
+  subset: null
+  split: train
+  subsets_to_run: &subsets_to_process [BS1, BS2, BS3, BS4, BS5, BC, HP, HS1, HS2, HU1, HU2, HU3, HU4, HW1, HW2, HW3, HW4, ES1, OC1]
+
+whisperseg_subset_params: &ws_params
+  all: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }  
+  BS1: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  BS2: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  BS3: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  BS4: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  BS5: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  BC: { params: { spec_time_step: 0.0025, min_frequency: 250.0, num_trials: 1 } }
+  HP: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HS1: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HS2: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HW1: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HW2: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HW3: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HW4: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HU1: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HU2: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HU3: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  HU4: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+  OC1: { params: { spec_time_step: 0.01, min_frequency: 100.0, num_trials: 1 } }
+  ES1: { params: { spec_time_step: 0.01, min_frequency: 50.0, num_trials: 1 } }
+
+definitions:
+  vae_trainer_def: &vae_trainer_def
+    name: PaperVAETrainer
+    module: reproducibility.trainers.vae
+    params:
+      z_dim: 32
+      learning_rate: 0.001
+      model_precision: 10.0
+      vae_frontend_params: &vae_frontend_params
+        target_sr: 16000
+        n_fft: 512
+        hop_length: 256
+        win_length: 512
+        window_fn_str: "hann"
+        spec_height: 128
+        spec_width: 128
+        window_overlap: 0.5
+  vae_model_def: &vae_model_def
+    name: VariationalAutoencoder
+    module: reproducibility.models.vae
+    params: &vae_model_params
+      z_dim: 32
+      model_precision: 10.0
+  vae_loop_params: &vae_loop_params
+    num_epochs: 50
+    batch_size: 64
+    save_frequency_epochs: 10
+    test_frequency: 10
+  ae_trainer_def: &ae_trainer_def
+    name: PaperAutoencoderTrainer
+    module: reproducibility.trainers.autoencoder
+    params:
+      learning_rate: 0.0003
+      regularization_weight: 0.01
+  ae_model_def: &ae_model_def
+    name: Autoencoder
+    module: reproducibility.models.autoencoder
+    params: &ae_model_params
+      bottleneck_dim: 256
+      audio_config: &ae_audio_config
+        sr: 16000
+        n_mels: 128
+        nfft: 1024
+        fmin: 0.0
+      dimensions: &ae_dimensions
+        nfft: 1024
+        max_spec_width: 512
+  ae_loop_params: &ae_loop_params
+    num_epochs: 50
+    batch_size: 128
+    early_stopping_patience: 10
+    mixed_precision: true
+    save_frequency_epochs: 10
+  vae_extractor_params: &vae_extractor_params
+    <<: *vae_frontend_params
+  ae_extractor_params: &ae_extractor_params
+    audio_config: *ae_audio_config
+    dimensions: *ae_dimensions
+    bottleneck_dim: 256
+
+train:
+  - trainer: *vae_trainer_def
+    model: *vae_model_def
+    train_on_subset: "all"
+    <<: *vae_loop_params
+  - trainer: *ae_trainer_def
+    model: *ae_model_def
+    train_on_subset: "all"
+    <<: *ae_loop_params
+
+feature_extractors:
+  - name: PaperVAEExtractor_all
+    module: reproducibility.features.vae
+    class: PaperVAEExtractor
+    params:
+      model_scope: "all"
+      base_models_dir: *models_output_dir
+      <<: *vae_extractor_params
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: VC
+  - name: PaperAutoencoderExtractor_all
+    module: reproducibility.features.autoencoder
+    class: PaperAutoencoderExtractor
+    params:
+      model_scope: "all"
+      base_models_dir: *models_output_dir
+      <<: *ae_extractor_params
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: AC
+  - name: MelExtractor
+    module: features.mel
+    params:
+      sr: 16000
+      n_mels: 128
+      n_fft: 512
+      hop_length: 256
+      log_scale: true
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: M
+  - name: WhisperEncoderExtractor
+    module: features.whisper
+    params:
+      model_id: "openai/whisper-large-v3"
+    compute_distances_for: ["cosine", "euclidean"]
+    benchmark_this: true
+    short_name: EW
+  - name: WhisperSegExtractor
+    module: features.whisperseg.extractor
+    params:
+      model_path: "d:/data2/vocsim/models/WhisperSegCompatible/whisper-large-v3-ct2"
+      output_type: "embedding"
+      default_spec_time_step: 0.01
+      default_min_frequency: 50.0
+      default_num_trials: 1
+    compute_distances_for: ["cosine", "euclidean"]
+    benchmark_this: true
+    short_name: E
+  - name: WavLMExtractor
+    module: features.wavlm
+    params:
+      model_id: "microsoft/wavlm-large"
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: WLM
+  - name: Wav2Vec2Extractor
+    module: features.wav2vec2
+    params:
+      model_id: "facebook/wav2vec2-base-960h"
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: W2V
+  - name: CLAPExtractor
+    module: features.clap
+    params:
+      model_id: "laion/larger_clap_general"
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: CLP
+  - name: AudioMAEExtractor
+    module: features.audiomae
+    params:
+      model_id: "hance-ai/audiomae"
+      trust_remote_code: true
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: MAE
+  - name: EncodecExtractor
+    module: features.encodec
+    params:
+      model_id: "facebook/encodec_24khz"
+      bandwidth: 6.0
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: CC
+  - name: WhisperEncoderExtractor_first_row_col
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWTF
+  - name: WhisperEncoderExtractor_first_row_col_pca_30
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row_col
+    pca: 30
+    pca_load_chunks: -1  
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWTF D30
+  - name: WhisperEncoderExtractor_first_row_col_pca_100
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWTF D100
+  - name: WhisperEncoderExtractor_first_col
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWF
+  - name: WhisperEncoderExtractor_first_col_pca_30
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_col
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWF D30
+  - name: WhisperEncoderExtractor_first_col_pca_100
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWF D100
+  - name: WhisperEncoderExtractor_first_row
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWT
+  - name: WhisperEncoderExtractor_first_row_pca_30
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWT D30
+  - name: WhisperEncoderExtractor_first_row_pca_100
+    base_extractor: WhisperEncoderExtractor
+    averaging: first_row
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWT D100
+  - name: WhisperEncoderExtractor_mean_row_col
+    base_extractor: WhisperEncoderExtractor
+    averaging: mean_row_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWMTF
+  - name: WhisperEncoderExtractor_mean_row_col_pca_30
+    base_extractor: WhisperEncoderExtractor
+    averaging: mean_row_col
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWMTF D30
+  - name: WhisperEncoderExtractor_mean_row_col_pca_100
+    base_extractor: WhisperEncoderExtractor
+    averaging: mean_row_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EWMTF D100
+  # Derived: WhisperSeg (E based)
+  - name: WhisperSegExtractor_first_row_col
+    base_extractor: WhisperSegExtractor
+    averaging: first_row_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ETF
+  - name: WhisperSegExtractor_first_row_col_pca_30
+    base_extractor: WhisperSegExtractor
+    averaging: first_row_col
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ETF D30
+  - name: WhisperSegExtractor_first_row_col_pca_100
+    base_extractor: WhisperSegExtractor
+    averaging: first_row_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ETF D100
+  - name: WhisperSegExtractor_first_row
+    base_extractor: WhisperSegExtractor
+    averaging: first_row
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ET
+  - name: WhisperSegExtractor_first_row_pca_30
+    base_extractor: WhisperSegExtractor
+    averaging: first_row
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ET D30
+  - name: WhisperSegExtractor_first_row_pca_100
+    base_extractor: WhisperSegExtractor
+    averaging: first_row
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: ET D100
+  - name: WhisperSegExtractor_first_col
+    base_extractor: WhisperSegExtractor
+    averaging: first_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EF
+  - name: WhisperSegExtractor_first_col_pca_30
+    base_extractor: WhisperSegExtractor
+    averaging: first_col
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EF D30
+  - name: WhisperSegExtractor_first_col_pca_100
+    base_extractor: WhisperSegExtractor
+    averaging: first_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EF D100
+  - name: WhisperSegExtractor_mean_row_col
+    base_extractor: WhisperSegExtractor
+    averaging: mean_row_col
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EMTF
+  - name: WhisperSegExtractor_mean_row_col_pca_30
+    base_extractor: WhisperSegExtractor
+    averaging: mean_row_col
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EMTF D30
+  - name: WhisperSegExtractor_mean_row_col_pca_100
+    base_extractor: WhisperSegExtractor
+    averaging: mean_row_col
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: EMTF D100
+  - name: WavLMExtractor_pca_30
+    base_extractor: WavLMExtractor 
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: WLM D30
+  - name: WavLMExtractor_pca_100
+    base_extractor: WavLMExtractor 
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: WLM D100
+  - name: Wav2Vec2Extractor_pca_30
+    base_extractor: Wav2Vec2Extractor 
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: W2V D30
+  - name: Wav2Vec2Extractor_pca_100
+    base_extractor: Wav2Vec2Extractor 
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: W2V D100
+  - name: CLAPExtractor_pca_30
+    base_extractor: CLAPExtractor
+    averaging: null
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: CLP D30
+  - name: CLAPExtractor_pca_100
+    base_extractor: CLAPExtractor
+    averaging: null
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: CLP D100
+  - name: AudioMAEExtractor_pca_30
+    base_extractor: AudioMAEExtractor
+    pca: 30
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: MAE D30
+  - name: AudioMAEExtractor_pca_100
+    base_extractor: AudioMAEExtractor
+    pca: 100
+    pca_load_chunks: -1
+    compute_distances_for: ["cosine", "euclidean", "spearman"]
+    benchmark_this: true
+    short_name: MAE D100
+
+distances:
+  - name: cosine
+    params:
+      use_torchmetrics: true
+      zero_diagonal: true
+  - name: euclidean
+    params:
+      use_torchmetrics: true
+      zero_diagonal: true
+  - name: spearman
+    params:
+      use_gpu_if_available: true
+
+benchmarks:
+  - name: PrecisionAtK
+    params:
+      k_values: [1, 5]
+  - name: FValueBenchmark
+    params:
+      min_class_size: 5
+  - name: GlobalSeparationRate
+    module: benchmarks.gsr 
+    params:
+      min_class_size: 5
+  - name: SilhouetteBenchmark
+    module: benchmarks.silhouette
+    params:
+      sample_size: 15000 
+      random_state: 42
+  - name: CSCFBenchmark
+    params:
+      min_class_size: 5
+  - name: ClusteringPurity
+    params:
+      use_distance_matrix_for_umap: true
+      hdbscan_min_cluster_size: 5
+  - name: ClassSeparationRatio
+    module: benchmarks.csr
+    params:
+      min_class_size: 5
+
+extraction_batch_size: 12 
+distance_gpu_block_size: 1024 

@@ -1,0 +1,15 @@
+results_dir: results
+features_dir: features_cache
+models_dir: models
+data_dir: data
+
+general_settings:
+  force_cpu: false
+  target_sample_rate: 16000
+  feature_chunk_size_gb: 3
+  run_id: default_run_${now:%Y%m%d_%H%M%S}
+
+logging:
+  level: INFO
+  log_dir: logs
+  log_file: benchmark_run.log
