@@ -12,6 +12,7 @@ from .wavlm import WavLMExtractor
 from .whisper import WhisperEncoderExtractor
 from .whisperseg.extractor import WhisperSegExtractor
 from .dac import DACExtractor
+from .eat import EATExtractor
 
 __all__ = [
     "FeatureExtractor",
@@ -24,4 +25,5 @@ __all__ = [
     "WhisperEncoderExtractor",
     "WhisperSegExtractor",
     "DACExtractor",
+    "EATExtractor",
 ]

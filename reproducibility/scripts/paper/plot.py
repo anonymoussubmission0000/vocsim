@@ -63,7 +63,7 @@ def load_and_parse_results_json(json_path: Path, subset_name: str) -> pd.DataFra
 def load_subset_characteristics() -> pd.DataFrame:
     """Loads the VocSim subset characteristics from a string into a DataFrame."""
     table1_data = """
-"ID","N. Samples","Classes","Sam/Cls (avg, range)","Avg. Dur (s) (min-max)","Avail","SNR (dB)"
+"ID","N. Samples","Classes","Sam/Cls (avg, range)","Avg. Dur (s) (min-max)","Avail","DRI (dB)"
 BS3,9988,46,"217.1 (2-1374)","0.07 (0.03-0.20)",Y,20
 BS1,473,6,"78.8 (78-79)","0.08 (0.03-0.17)",Y,20
 HP,10687,68,"157.2 (8-176)","0.09 (0.03-0.49)",Y,18
@@ -74,7 +74,7 @@ HW2,8827,1324,"6.7 (5-7)","0.39 (0.08-1.00)",Y,19
 HW1,11532,754,"15.3 (5-100)","0.40 (0.07-1.10)",Y,20
 HU2,17041,1366,"12.5 (5-130)","0.64 (0.03-0.49)",Y,22
 BS5,8244,30,"274.8 (42-333)","0.70 (0.03-4.99)",Y,26
-OC1,441,21,"21.0 (9-32)","0.87 (0.28-5.32)",Y,61
+OC1,441,21,"21.0 (9-32)","0.87 (0.28-5.32)",Y,23
 HS1,1670,14,"119.3 (5-713)","0.88 (0.04-2.98)",Y,26
 HW4,3497,215,"16.3 (5-46)","0.97 (0.46-2.00)",X,15
 HU4,1001,80,"12.5 (5-44)","0.99 (0.47-1.98)",X,15
@@ -162,7 +162,7 @@ def generate_trends_figure_with_gsr(
             '# Classes (Log)': 'Classes',
             'Avg. Samples / Class (Log)': 'Sam/Cls (avg, range)',
             'Avg. Duration (s) (Log)': 'Avg. Dur (s) (min-max)',
-            'SNR (dB)': 'SNR (dB)'
+            'DRI (dB)': 'DRI (dB)'
         }
         subplot_labels = ['a)', 'b)', 'c)', 'd)', 'e)', 'f)']
 

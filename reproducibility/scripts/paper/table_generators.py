@@ -128,6 +128,9 @@ def generate_vocsim_main_table(df: DataFrame, config_manager: ConfigManager) -> 
 
     # All metrics are now "higher is better" for bolding
     return bold_best_in_columns(result, ordered_cols, {k: True for k in result.columns})
+
+# In: reproducibility/scripts/paper/table_generators.py
+
 def generate_full_results_table(
     df: DataFrame,
     metric_name_key: str,
@@ -150,8 +153,6 @@ def generate_full_results_table(
     features = config_manager.get_ordered_features()
     distances = ["cosine", "euclidean", "spearman"]
     
-    # Determine if the benchmark is exclusively feature-based
-    # A simple heuristic: check if it *ever* appears as feature_based in the data
     is_feature_based_metric = not df[df["benchmark"] == benchmark_name]["distance"].dropna().any()
 
     for feature_name in features:
@@ -160,12 +161,12 @@ def generate_full_results_table(
             continue
 
         if is_feature_based_metric:
-            # Special handling for feature-based metrics like ClusteringPurity
             row = {
                 "Method": config_manager.get_display_name(feature_name),
                 "Dist": "-",
             }
-            subset_scores, blind_scores, has_data = [], [], False
+            # --- START FIX ---
+            public_scores, blind_scores, has_data = [], [], False
             for subset in subsets:
                 df_metric = df_feature[
                     (df_feature["subset"] == subset) &
@@ -180,24 +181,27 @@ def generate_full_results_table(
                         has_data = True
                 row[subset] = score
                 if pd.notna(score):
-                    subset_scores.append(score)
                     if subset in BLIND_TEST_SUBSETS:
                         blind_scores.append(score)
+                    else:
+                        public_scores.append(score)
             
             if has_data:
-                row["Avg"] = np.mean(subset_scores) if subset_scores else np.nan
+                row["Avg"] = np.mean(public_scores) if public_scores else np.nan
                 row["Avg (Blind)"] = np.mean(blind_scores) if blind_scores else np.nan
                 sort_val = row["Avg (Blind)"] if pd.notna(row["Avg (Blind)"]) else row["Avg"] if pd.notna(row["Avg"]) else (-np.inf if is_higher_better else np.inf)
                 row["_sort_score"] = sort_val * (1 if is_higher_better else -1)
                 rows_data.append(row)
+            # --- END FIX ---
+
         else:
-            # Standard handling for distance-based metrics
             for dist_name in distances:
                 row = {
                     "Method": config_manager.get_display_name(feature_name),
                     "Dist": config_manager.get_display_name(dist_name, "distance"),
                 }
-                subset_scores, blind_scores, has_data = [], [], False
+                # --- START FIX ---
+                public_scores, blind_scores, has_data = [], [], False
                 for subset in subsets:
                     df_metric = df_feature[
                         (df_feature["subset"] == subset) &
@@ -213,16 +217,18 @@ def generate_full_results_table(
                             has_data = True
                     row[subset] = score
                     if pd.notna(score):
-                        subset_scores.append(score)
                         if subset in BLIND_TEST_SUBSETS:
                             blind_scores.append(score)
+                        else:
+                            public_scores.append(score)
                 
                 if has_data:
-                    row["Avg"] = np.mean(subset_scores) if subset_scores else np.nan
+                    row["Avg"] = np.mean(public_scores) if public_scores else np.nan
                     row["Avg (Blind)"] = np.mean(blind_scores) if blind_scores else np.nan
                     sort_val = row["Avg (Blind)"] if pd.notna(row["Avg (Blind)"]) else row["Avg"] if pd.notna(row["Avg"]) else (-np.inf if is_higher_better else np.inf)
                     row["_sort_score"] = sort_val * (1 if is_higher_better else -1)
                     rows_data.append(row)
+                # --- END FIX ---
 
     if not rows_data:
         return None
@@ -230,16 +236,13 @@ def generate_full_results_table(
     result_df = pd.DataFrame(rows_data).sort_values("_sort_score", ascending=False).drop(columns="_sort_score").set_index(["Method", "Dist"])
     result_df = result_df.reindex(columns=VOCSIM_APPENDIX_S_COLUMN_ORDER)
 
-    # Create a numeric version for bolding calculations
     numeric_df = result_df.copy()
     if is_percent:
         numeric_df = numeric_df.applymap(lambda x: x * 100 if pd.notna(x) else np.nan)
 
-    # Format the display DataFrame
     for col in result_df.columns:
         result_df[col] = result_df[col].apply(lambda x: format_number(x, 1, is_percent))
 
-    # Apply bolding based on the numeric DataFrame
     for col in VOCSIM_APPENDIX_S_COLUMN_ORDER:
         if col not in numeric_df.columns:
             continue
@@ -252,7 +255,7 @@ def generate_full_results_table(
                 result_df.loc[idx, col] = bold_string(result_df.loc[idx, col])
 
     return result_df
-
+    
 def generate_avian_perception_table(df: DataFrame, config_manager: ConfigManager) -> Optional[DataFrame]:
     if df.empty: return None
     logger.info("Generating Avian Perception Table (Triplet Acc. High)")
@@ -376,7 +379,6 @@ def generate_mouse_identity_table(df_identity: pd.DataFrame, features: List[str]
     return result_df
 
 
-# In: reproducibility/scripts/paper/table_generators.py
 
 def generate_averaged_correlation_table(df: DataFrame, config_manager: ConfigManager, methods_to_include: Optional[List[str]] = None) -> Optional[DataFrame]:
     """

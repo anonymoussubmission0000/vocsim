@@ -1,3 +1,11 @@
 logs/
 *.pyc
 *.sh
+/ablation_results
+*.json
+/hear_results
+/layerwise_results
+/overlap_audit_results
+/tools
+/reproducibility/scripts/ablations
+/reproducibility/scripts/downstream
